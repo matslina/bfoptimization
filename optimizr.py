@@ -147,6 +147,7 @@ def opt_offsetops(ir):
 
 #        sys.stdout.write('%s %d %d %d\n' % (opt[i:j], i, j, len(opt)))
 
+        block = []
         p = 0
         offset = {}
         for op in opt[i:j]:
@@ -154,10 +155,13 @@ def opt_offsetops(ir):
                 p -= op[1][0]
             elif op[0] == 'right':
                 p += op[1][0]
+            elif op[0] in ('out', 'in', 'clear'):
+                block.extend( ('o' + x[0], (p,) + x[1]) for x in offset.get(p, []))
+                block.append(('o' + op[0], (p,) + op[1]))
+                offset[p] = []
             else:
                 offset.setdefault(p, []).append(op)
 
-        block = []
         for off in sorted(offset):
             for op in offset[off]:
                 if off:
