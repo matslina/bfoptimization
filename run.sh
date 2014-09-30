@@ -9,7 +9,7 @@ PROGS="*.b"
 avgruntime() {
     > tmp.dat
     for i in $(seq 10); do
-	$1 < $2 > /dev/null 2>>tmp.dat
+	$1 < $2 > $3 2>>tmp.dat
     done
     echo "scale=4; ($(tr '\n' '+' < tmp.dat) 0) / 10" | bc
     rm tmp.dat
@@ -24,11 +24,11 @@ for optimization in $OPTS; do
 	fi
 
 	# make sure we have runtime without optimizations
-	if [ ! -f ${program}.none.dat ]; then
+	if [ ! -f ${program}.none.dat -o ! -f ${program}.out ]; then
 	    echo "$program without optimization"
 	    python optimizr.py none <$program > tmp.c
 	    gcc -O0 tmp.c -o tmp
-	    avgruntime ./tmp ${program}.in > ${program}.none.dat
+	    avgruntime ./tmp ${program}.in ${program}.out > ${program}.none.dat
 	fi
 
 	# run with opt and add improvement to data file
@@ -37,8 +37,12 @@ for optimization in $OPTS; do
 	gcc -O0 tmp.c -o tmp
 	rm tmp.c
 	echo -ne "$program\t" >> ${optimization}.dat
-	echo "scale=5; $(avgruntime ./tmp ${program}.in) / $(<${program}.none.dat)" | \
+	echo "scale=5; $(avgruntime ./tmp ${program}.in tmp.out) / $(<${program}.none.dat)" | \
 	    bc >> ${optimization}.dat
+	if ! cmp tmp.out ${program}.out; then
+	    echo "EPIC MEGA FAIL"
+	    exit 1
+	fi
     done
 
     # gnuplot!
