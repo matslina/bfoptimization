@@ -15,6 +15,7 @@ avgruntime() {
     rm tmp.dat
 }
 
+# measure runtime for all optimizations on all programs
 for optimization in $OPTS; do
 
     for program in $PROGS; do
@@ -37,8 +38,10 @@ for optimization in $OPTS; do
 	gcc -O0 tmp.c -o tmp
 	rm tmp.c
 	echo -ne "$program\t" >> ${optimization}.dat
-	echo "scale=5; $(avgruntime ./tmp ${program}.in tmp.out) / $(<${program}.none.dat)" | \
-	    bc >> ${optimization}.dat
+	echo -ne "$(avgruntime ./tmp ${program}.in tmp.out)" >> ${optimization}.dat
+	echo -e "\t$(<${program}.none.dat)" >> ${optimization}.dat
+
+	# verify that the output was correct
 	if ! cmp tmp.out ${program}.out; then
 	    echo "EPIC MEGA FAIL"
 	    exit 1
@@ -53,6 +56,7 @@ set output "${optimization}.png"
 set title "$optimization optimization speedup"
 set auto x
 set yrange [0:1]
+set ytic 0.1
 set style data histogram
 set style histogram cluster gap 1
 set style fill solid 1.0 noborder
@@ -60,10 +64,62 @@ set grid y
 set xtic rotate by -45 scale 0
 set boxwidth 0.9
 set ylabel "speedup over unoptimized version"
-plot '${optimization}.dat' using 2:xticlabel(1) notitle
+plot '${optimization}.dat' using (\$2 / \$3):xticlabels(1) notitle
 EOF
 
    gnuplot ${optimization}.p
 
 done
 
+# plot actual runtimes without optimization
+echo "plotting runtimes"
+> runtime.dat
+for program in $PROGS; do
+    echo -e "$program\t$(<${program}.none.dat)" >> runtime.dat
+done
+
+cat > runtime.p <<EOF
+set terminal png
+set output "runtime.png"
+set title "runtime without optimizations"
+set auto x
+set yrange [0:*]
+set style data histogram
+set style histogram cluster gap 1
+set style fill solid 1.0 noborder
+set grid y
+set xtic rotate by -45 scale 0
+set boxwidth 0.9
+set ylabel "runtime (seconds)"
+plot 'runtime.dat' using 2:xticlabel(1) notitle
+EOF
+
+gnuplot runtime.p
+
+
+# plot actual runtimes with and without optimization
+> runtime2.dat
+for program in $PROGS; do
+    echo -ne "$program\t$(<${program}.none.dat)\t" >> runtime2.dat
+    grep $program all.dat | awk '{print $2}' >> runtime2.dat
+done
+
+cat > runtime2.p <<EOF
+set terminal png
+set output "runtime2.png"
+set title "runtime with and without optimizations"
+set key inside top left box
+set auto x
+set yrange [0:*]
+set style data histogram
+set style histogram cluster gap 1
+set style fill solid 1.0 noborder
+set grid y
+set xtic rotate by -45 scale 0
+set boxwidth 0.9
+set ylabel "runtime (seconds)"
+plot 'runtime2.dat' using 2:xticlabel(1) title 'no optimization', \
+     '' u 3 title 'all optimizations'
+EOF
+
+gnuplot runtime2.p
