@@ -8,11 +8,11 @@ PROGS="*.b"
 # return the average runtime of 10 runs
 avgruntime() {
     > tmp.dat
-    for i in $(seq 10); do
-	$1 < $2 > $3 2>>tmp.dat
+    TIMEFORMAT="%R"
+    for i in $(seq 1); do
+	{ time $1 < $2 > $3 2> /dev/null ; } 2>>tmp.dat
     done
-    echo "scale=4; ($(tr '\n' '+' < tmp.dat) 0) / 10" | bc
-    rm tmp.dat
+    echo "scale=4; ($(tr '\n' '+' < tmp.dat) 0) / 1" | bc
 }
 
 # measure runtime for all optimizations on all programs

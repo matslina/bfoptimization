@@ -4,18 +4,12 @@ import sys
 
 C_HEADER = '''
 #include <stdio.h>
-#include <time.h>
 unsigned char mem[65536];
 int main() {
 int p=0;
-clock_t time_start, time_stop;
-time_start = clock();
 '''
 
 C_FOOTER = '''
-time_stop = clock();
-fprintf(stderr, "%.2f\\n",
-        ((double)(time_stop - time_start))/CLOCKS_PER_SEC);
 return 0;
 }
 '''
