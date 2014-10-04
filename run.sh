@@ -20,16 +20,16 @@ for optimization in $OPTS; do
 
     for program in $PROGS; do
 
-	if test -f ${optimization}.dat && grep $program ${optimization}.dat >/dev/null; then
+	if test -f $optimization.dat && grep $program $optimization.dat >/dev/null; then
 	    continue
 	fi
 
 	# make sure we have runtime without optimizations
-	if [ ! -f ${program}.none.dat -o ! -f ${program}.out ]; then
+	if [ ! -f $program.none.dat -o ! -f $program.out ]; then
 	    echo "$program without optimization"
 	    python optimizr.py none <$program > tmp.c
 	    gcc -O0 tmp.c -o tmp
-	    avgruntime ./tmp ${program}.in ${program}.out > ${program}.none.dat
+	    avgruntime ./tmp $program.in $program.out > $program.none.dat
 	fi
 
 	# run with opt and add improvement to data file
@@ -37,22 +37,22 @@ for optimization in $OPTS; do
 	python optimizr.py $optimization <$program > tmp.c
 	gcc -O0 tmp.c -o tmp
 	rm tmp.c
-	echo -ne "$program\t" >> ${optimization}.dat
-	echo -ne "$(avgruntime ./tmp ${program}.in tmp.out)" >> ${optimization}.dat
-	echo -e "\t$(<${program}.none.dat)" >> ${optimization}.dat
+	echo -ne "$program\t" >> $optimization.dat
+	echo -ne "$(avgruntime ./tmp $program.in tmp.out)" >> $optimization.dat
+	echo -e "\t$(<$program.none.dat)" >> $optimization.dat
 
 	# verify that the output was correct
-	if ! cmp tmp.out ${program}.out; then
+	if ! cmp tmp.out $program.out; then
 	    echo "EPIC MEGA FAIL"
 	    exit 1
 	fi
     done
 
     # gnuplot!
-    echo "plotting ${optimization}.p"
-    cat > ${optimization}.p <<EOF
+    echo "plotting $optimization.p"
+    cat > $optimization.p <<EOF
 set terminal png
-set output "${optimization}.png"
+set output "$optimization.png"
 set title "$optimization optimization speedup"
 set auto x
 set yrange [0:1]
@@ -64,10 +64,10 @@ set grid y
 set xtic rotate by -45 scale 0
 set boxwidth 0.9
 set ylabel "speedup over unoptimized version"
-plot '${optimization}.dat' using (\$2 / \$3):xticlabels(1) notitle
+plot '$optimization.dat' using (\$2 / \$3):xticlabels(1) notitle
 EOF
 
-   gnuplot ${optimization}.p
+   gnuplot $optimization.p
 
 done
 
@@ -75,7 +75,7 @@ done
 echo "plotting runtimes"
 > runtime.dat
 for program in $PROGS; do
-    echo -e "$program\t$(<${program}.none.dat)" >> runtime.dat
+    echo -e "$program\t$(<$program.none.dat)" >> runtime.dat
 done
 
 cat > runtime.p <<EOF
@@ -100,7 +100,7 @@ gnuplot runtime.p
 # plot actual runtimes with and without optimization
 > runtime2.dat
 for program in $PROGS; do
-    echo -ne "$program\t$(<${program}.none.dat)\t" >> runtime2.dat
+    echo -ne "$program\t$(<$program.none.dat)\t" >> runtime2.dat
     grep $program all.dat | awk '{print $2}' >> runtime2.dat
 done
 
