@@ -76,6 +76,13 @@ def ir_to_c(ir):
 
 
 def opt_contract(ir):
+    """Contracts multiple Add, Sub, Left and Right into single instructions.
+
+    Some brainfuck instructions can be contracted into single
+    instructions. E.g., the brainfuck '>>>+++<<<---' can be contracted
+    into 4 IR instructions: Right(3), Add(3), Left(3), Sub(3).
+    """
+
     optimized = [ir[0]]
 
     for op in ir[1:]:
@@ -93,6 +100,8 @@ def opt_contract(ir):
 
 
 def opt_clearloop(ir):
+    """Replaces clear loops ([-] and [+]) with single instructions."""
+
     optimized = []
 
     for op in ir:
@@ -110,8 +119,10 @@ def opt_clearloop(ir):
 
     return optimized
 
+
 def opt_copyloop(ir):
     return opt_multiloop(ir, True)
+
 
 def opt_multiloop(ir, onlycopy=False):
     opt = ir[:]
