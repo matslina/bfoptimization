@@ -1,42 +1,79 @@
 #!/usr/bin/env python
 
 import sys
-
-C_HEADER = '''
-#include <stdio.h>
-unsigned char mem[65536];
-int main() {
-int p=0;
-'''
-
-C_FOOTER = '''
-return 0;
-}
-'''
+from collections import namedtuple
 
 
-def bf_to_ir(bf):
-    ir = []
+# The IR
 
-    for c in bf:
-        if c == '+':
-            ir.append(('add', (1,)))
-        elif c == '-':
-            ir.append(('sub', (1,)))
-        elif c == '>':
-            ir.append(('right', (1,)))
-        elif c == '<':
-            ir.append(('left', (1,)))
-        elif c == '[':
-            ir.append(('open', ()))
-        elif c == ']':
-            ir.append(('close', ()))
-        elif c == '.':
-            ir.append(('out', ()))
-        elif c == ',':
-            ir.append(('in', ()))
+# These map directly to the 8 regular brainfuck instructions. The
+# exception is the offset parameter, which would be 0 in regular
+# brainfuck, but can here indicate an offset from the current cell at
+# which the operation should be applied.
+Add = namedtuple('Add', ['x', 'offset'])
+Sub = namedtuple('Sub', ['x', 'offset'])
+Right = namedtuple('Right', ['x'])
+Left = namedtuple('Left', ['x'])
+In = namedtuple('In', ['offset'])
+Out = namedtuple('Out', ['offset'])
+Open = namedtuple('Open', [])
+Close = namedtuple('Close', [])
 
-    return ir
+# This IR has a couple of additional operations. Clear sets a cell to
+# 0. Copy copies the current cell to 'off' positions away. Mul is like
+# Copy but also holds a factor to multiply the copied value with.
+Clear = namedtuple('Clear', ['offset'])
+Copy = namedtuple('Copy', ['off'])
+Mul = namedtuple('Mul', ['off', 'factor'])
+
+
+def bf_to_ir(brainfuck):
+    """Translates brainfuck to IR."""
+
+    simplemap = {'+': Add(1, 0),
+                 '-': Sub(1, 0),
+                 '>': Right(1),
+                 '<': Left(1),
+                 ',': In(0),
+                 '.': Out(0),
+                 '[': Open(),
+                 ']': Close()}
+
+    return [simplemap[c] for c in brainfuck if c in simplemap]
+
+
+def ir_to_c(ir):
+    """Translates IR into a C program."""
+
+    plain = {Add: 'mem[p] += %(x)d;',
+             Sub: 'mem[p] -= %(x)d;',
+             Right: 'p += %(x)d;',
+             Left: 'p -= %(x)d;',
+             Open: 'while (mem[p]) {',
+             Close: '}',
+             In: 'mem[p] = getchar();',
+             Out: 'putchar(mem[p]);',
+             Clear: 'mem[p] = 0;',
+             Copy: 'mem[p+%(off)d] += mem[p];',
+             Mul: 'mem[p+%(off)d] += mem[p] * %(factor)d;'}
+
+    woff = {Add: 'mem[p+%(offset)d] += %(x)d;',
+            Sub: 'mem[p+%(offset)d] -= %(x)d;',
+            In: 'mem[p+%(offset)d] = getchar();',
+            Out: 'putchar(mem[p+%(offset)d]);',
+            Clear: 'mem[p+%(offset)d] = 0;'}
+
+    code = [(woff if getattr(op, 'offset', 0) else plain)[op.__class__] % op._asdict()
+            for op in ir]
+    code.insert(0, '\n'.join(['#include <stdio.h>',
+                              'unsigned char mem[65536];',
+                              'int main() {',
+                              'int p=0;']))
+    code.append('return 0;')
+    code.append('}')
+
+    return '\n'.join(code)
+
 
 def opt_contract(ir):
     opt = [ir[0]]
@@ -46,6 +83,7 @@ def opt_contract(ir):
         else:
             opt.append(op)
     return opt
+
 
 def opt_clearloop(ir):
     opt = ir[:]
@@ -176,36 +214,6 @@ def opt_offsetops(ir):
 #        print i,j
 
     return opt
-
-
-def ir_to_c(ir):
-    map = {'add': 'mem[p] += %d;',
-           'sub': 'mem[p] -= %d;',
-           'right': 'p += %d;',
-           'left': 'p -= %d;',
-           'open': 'while (mem[p]) {',
-           'close': '}',
-           'in': 'mem[p] = getchar();',
-           'out': 'putchar(mem[p]);',
-           'clear': 'mem[p] = 0;',
-           'copy': 'mem[p+%d] += mem[p]; // * %d;',
-           'mul': 'mem[p+%d] += mem[p] * %d;',
-           'oadd': 'mem[p+%d] += %d;',
-           'osub': 'mem[p+%d] -= %d;',
-           'oin': 'mem[p+%d] = getchar();',
-           'oout': 'putchar(mem[p+%d]);',
-           'oclear': 'mem[p+%d] = 0;'}
-
-    code = []
-    try:
-        code.extend([map[op] % arg for op, arg in ir])
-    except KeyError:
-        raise Exception('foobar failure: %s' % op)
-
-    code.insert(0, C_HEADER)
-    code.append(C_FOOTER)
-
-    return '\n'.join(code)
 
 
 opts = {'contract': opt_contract,
