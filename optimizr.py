@@ -76,29 +76,39 @@ def ir_to_c(ir):
 
 
 def opt_contract(ir):
-    opt = [ir[0]]
+    optimized = [ir[0]]
+
     for op in ir[1:]:
-        if op[0] == opt[-1][0] and op[0] in ('add', 'sub', 'left', 'right'):
-            opt[-1] = (opt[-1][0], (opt[-1][1][0] + op[1][0],))
+        prev = optimized[-1]
+        if (op.__class__ in (Add, Sub, Left, Right) and
+            op.__class__ == prev.__class__ and
+            getattr(op, 'offset', 0) == getattr(prev, 'offset', 0)):
+            # op is contractable, of same type and with same offset
+            # (if any) as the previous opt
+            optimized[-1] = prev._replace(x = prev.x + op.x)
         else:
-            opt.append(op)
-    return opt
+            optimized.append(op)
+
+    return optimized
 
 
 def opt_clearloop(ir):
-    opt = ir[:]
-    i = 0
-    while True:
-        try:
-            i = opt.index(('open', ()), i)
-        except ValueError:
-            break
-        if (opt[i + 1][0] in ('add', 'sub') and
-            opt[i + 1][1] == (1,) and
-            opt[i + 2] == ('close', ())):
-            opt = opt[:i] + [('clear', ())] + opt[i + 3:]
-        i += 1
-    return opt
+    optimized = []
+
+    for op in ir:
+        optimized.append(op)
+        if (op.__class__ == Close and
+            len(optimized) > 2 and
+            optimized[-2].__class__ in (Sub, Add) and
+            optimized[-2].x == 1 and
+            optimized[-2].offset == 0 and
+            optimized[-3].__class__ == Open):
+            # last 3 ops are [-] or [+] so replace with Clear
+            optimized.pop(-1)
+            optimized.pop(-1)
+            optimized[-1] = Clear(0)
+
+    return optimized
 
 def opt_copyloop(ir):
     return opt_multiloop(ir, True)
