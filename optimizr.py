@@ -179,62 +179,62 @@ def opt_multiloop(ir, onlycopy=False):
     return opt
 
 def opt_offsetops(ir):
+    """Adds offsets to operations where applicable.
 
-    opt = ir[:]
 
-    OFFSETABLE = ('add', 'sub', 'in', 'out', 'clear')
-    BLOCKOPS = ('add', 'sub', 'in', 'out', 'clear', 'left', 'right')
+    Pointer positioning, i.e. < and > or Left and Right, can often be
+    eliminated by providing offsets to other instructions. E.g.,
+    ->>>++.>>->> becomes Add(2, 3) Out(3) Sub(1, 5) Right(7).
+    """
+
+    ir = ir[:]
+
     i = 0
+    while i < len(ir):
 
-    while i < len(opt):
-
-        while i < len(opt) and opt[i][0] not in BLOCKOPS:
+        # find the next block of "offsetable" instructions
+        BLOCKOPS = (Add, Sub, Left, Right, Clear, In, Out)
+        while i < len(ir) and ir[i].__class__ not in BLOCKOPS:
             i += 1
-        if i >= len(opt):
+        if i >= len(ir):
             break
-
         j = i
-        while j < len(opt) and opt[j][0] in BLOCKOPS:
-#            print "move j past", opt[j], j
+        while j < len(ir) and ir[j].__class__ in BLOCKOPS:
             j += 1
 
-#        sys.stdout.write('%s %d %d %d\n' % (opt[i:j], i, j, len(opt)))
-
-        block = []
-        p = 0
-        offset = {}
-        for op in opt[i:j]:
-            if op[0] == 'left':
-                p -= op[1][0]
-            elif op[0] == 'right':
-                p += op[1][0]
-            elif op[0] in ('out', 'in', 'clear'):
-                block.extend( ('o' + x[0], (p,) + x[1]) for x in offset.get(p, []))
-                block.append(('o' + op[0], (p,) + op[1]))
+        # interpret the block and track what arithmetic operations are
+        # applied to each offset. as soon as a non-arithmetic
+        # operation is encountered, we dump the arithmetic operations
+        # performed on that offset followed by the non-arithmetic
+        # operation.
+        optblock, offset, p = [], {}, 0
+        for op in ir[i:j]:
+            if isinstance(op, Left):
+                p -= op.x
+            elif isinstance(op, Right):
+                p += op.x
+            elif op.__class__ in (Out, In, Clear):
+                optblock.extend(x._replace(offset=p) for x in offset.get(p, []))
+                optblock.append(op._replace(offset=p))
                 offset[p] = []
             else:
                 offset.setdefault(p, []).append(op)
 
+        # then dump the remaining arithmetic operations
         for off in sorted(offset):
-            for op in offset[off]:
-                if off:
-                    block.append(('o' + op[0], (off,) + op[1]))
-                else:
-                    block.append(op)
+            optblock.extend(op._replace(offset=off) for op in offset[off])
+
+        # and finally reposition the pointer to wherever it ended up
         if p > 0:
-            block.append(('right', (p,)))
+            optblock.append(Right(p))
         elif p < 0:
-            block.append(('left', (-p,)))
+            optblock.append(Left(-p))
 
-        opt = opt[:i] + block + opt[j:]
+        # replace the code block with the optimized block
+        ir = ir[:i] + optblock + ir[j:]
+        i += len(optblock) + 1
 
-#        print "block", block
-
-#        print i,j
-        i += len(block) + 1
-#        print i,j
-
-    return opt
+    return ir
 
 
 opts = {'contract': opt_contract,
