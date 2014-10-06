@@ -123,3 +123,121 @@ plot 'runtime2.dat' using 2:xticlabel(1) title 'no optimization', \
 EOF
 
 gnuplot runtime2.p
+
+# measure runtime of each program compiled with all compilers
+echo $PROGS
+for program in $PROGS; do
+
+    touch opt_$program.dat
+
+    # awib-0.4
+    if [ -f compilers/awib-0.4.b ] && \
+	! grep awib-0.4 opt_$program.dat > /dev/null; then
+
+	# build compiler if needed
+	if [ ! -f compilers/awib-0.4 ]; then
+	    echo "building awib-0.4"
+	    cp compiler/awib-0.4.b tmp.c
+	    gcc tmp.c -o tmp
+	    ./tmp.c < compilers/awib-0.4.b > compilers/awib-0.4.c
+	    gcc -O3 compilers/awib-0.4 -o compilers/awib-0.4
+	fi
+
+	# compile program, run and measure runtime
+	echo "$program with awib-0.4"
+	compilers/awib-0.4 < $program > tmp.c
+	gcc -O0 tmp.c -o tmp
+	echo -ne "awib-0.4\t" >> opt_$program.dat
+	avgruntime ./tmp $program.in tmp.out >> opt_$program.dat
+	if ! cmp tmp.out $program.out; then
+	    echo "EPIC MEGA FAIL"
+	    exit 1
+	fi
+    else
+	echo "skipping awib-0.4"
+    fi
+
+    # hamster-0.4
+    if [ -d compilers/hamster_v.0.4 ] && \
+	! grep hamster-0.4 opt_$program.dat > /dev/null; then
+
+	# compile, run, measure
+	echo "$program with hamster-0.4"
+	mzscheme compilers/hamster_v.0.4/bf-compiler.scm ansi_c $program > tmp.c
+	gcc -O0 tmp.c -o tmp
+	echo -ne "hamster-0.4\t" >> opt_$program.dat
+	avgruntime ./tmp $program.in tmp.out >> opt_$program.dat
+	if ! cmp tmp.out $program.out; then
+	    echo "EPIC MEGA FAIL"
+	    exit 1
+	fi
+    else
+	echo "skipping hamster-0.4"
+    fi
+
+    # esotope
+    if [ -d compilers/bfc ] && \
+	! grep esotope opt_$program.dat > /dev/null; then
+
+	# compile, run, measure
+	echo "$program with esotope"
+	PYTHONPATH=compilers/bfc compilers/bfc/esotope-bfc $program > tmp.c
+	gcc -O0 tmp.c -o tmp
+	echo -ne "esotope\t" >> opt_$program.dat
+	avgruntime ./tmp $program.in tmp.out >> opt_$program.dat
+	if ! cmp tmp.out $program.out; then
+	    echo "EPIC MEGA FAIL"
+	    exit 1
+	fi
+    else
+	echo "skipping esotope"
+    fi
+
+    # bff4
+    if [ -f compilers/bff4.c ] && \
+	! grep bff4 opt_$program.dat > /dev/null; then
+
+	# compile, run, measure
+	echo "$program with bff4"
+	gcc -O3 compilers/bff4.c -o compilers/bff4
+	(tr -d '!' < $program; echo '!'; cat $program.in) > tmp.in
+	echo -ne "bff4\t" >> opt_$program.dat
+	avgruntime compilers/bff4 tmp.in tmp.out >> opt_$program.dat
+	if ! cmp tmp.out $program.out; then
+	    echo "EPIC MEGA FAIL"
+	    exit 1
+	fi
+    else
+	echo "skipping bff4"
+    fi
+
+    # optimizr.py
+    if ! grep optimizr.py opt_$program.dat > /dev/null; then
+
+	# grab runtime from previous run
+	echo "$program with all"
+	echo -ne "optimizr\t" >> opt_$program.dat
+	grep $program all.dat | awk '{print $2}' >> opt_$program.dat
+    fi
+
+    # plot runtimes for the compilers
+    echo "plotting opt_$program.p"
+    cat > opt_$program.p <<EOF
+set terminal png
+set output "opt_$program.png"
+set title "runtime of $program with different compilers "
+set auto x
+set yrange [0:*]
+set style data histogram
+set style histogram cluster gap 1
+set style fill solid 1.0 noborder
+set grid y
+set xtic rotate by -45 scale 0
+set boxwidth 0.9
+set ylabel "runtime (seconds)"
+plot 'opt_$program.dat' using 2:xticlabel(1) notitle
+EOF
+
+    gnuplot opt_$program.p
+
+done
