@@ -1,5 +1,18 @@
 #!/usr/bin/env python
 
+"""An optimizing brainfuck-to-C compiler.
+
+This program implements a couple of well known brainfuck optimizations
+and compiles them them to C code. It is primarily written to enable
+experimentation with different optimization combinations and to
+illustrate how these optimizations function.
+
+For a real, battle-tested compiler, we recommend awib:
+http://code.google.com/p/awib/
+
+Mats Linander <matslina (at) gmail (dot) com>
+"""
+
 import sys
 from collections import namedtuple
 
