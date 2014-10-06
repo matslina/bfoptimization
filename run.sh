@@ -12,7 +12,7 @@ avgruntime() {
     for i in $(seq 10); do
 	{ time $1 < $2 > $3 2> /dev/null ; } 2>>tmp.dat
     done
-    echo "scale=4; ($(tr '\n' '+' < tmp.dat) 10) / 1" | bc
+    echo "scale=4; ($(tr '\n' '+' < tmp.dat) 0) / 10" | bc
 }
 
 # measure runtime for all optimizations on all programs
