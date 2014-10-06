@@ -125,58 +125,86 @@ def opt_copyloop(ir):
 
 
 def opt_multiloop(ir, onlycopy=False):
-    opt = ir[:]
-    i = -1
+    """Replaces copy and multiplication loops with Copy and Mul.
+
+    The copy loop is a common construct in brainfuck, where something
+    like [->>+>+<<<] is used to duplicate the current cell to two
+    other cells. This example can be replaced with three constant time
+    operations: Copy(2) Copy(3) Clear(0).
+
+    The multiplication loop is similar but adds a multiplicative
+    factor to the value being copied. E.g. [->>+++++>++<<<] can be
+    replaced with Mul(2, 5) Mul(3, 2) Clear(0).
+    """
+
+    ir = ir[:]
+
+    i = 0
     while True:
-        try:
-            i = opt.index(('open', ()), i + 1)
-            j = opt.index(('close', ()), i)
-        except ValueError:
+
+        # find the next "leaf loop", i.e. the next loop that doesn't
+        # hold any other loops. break if no such loop exists.
+        while i < len(ir):
+            if isinstance(ir[i], Open):
+                break
+            i += 1
+        else:
+            break
+        j = i + 1
+        while j < len(ir):
+            if isinstance(ir[j], Close):
+                break
+            if isinstance(ir[j], Open):
+                i = j
+            j += 1
+        else:
             break
 
-#        sys.stderr.write("%s " % set([op[0] for op in opt[i + 1:j]]))
-        if set() != \
-           set([op[0] for op in opt[i + 1:j]]) - \
-           set(['add', 'sub', 'left', 'right']):
-#            sys.stderr.write("niet\n")
-            continue
-
-        mem = {}
-        p = 0
-        for op in opt[i + 1:j]:
-            if op[0] == 'add':
-                mem[p] = mem.get(p, 0) + op[1][0]
-            elif op[0] == 'sub':
-                mem[p] = mem.get(p, 0) - op[1][0]
-            elif op[0] == 'left':
-                p -= op[1][0]
-            elif op[0] == 'right':
-                p += op[1][0]
-
-        if p != 0:
-#            sys.stderr.write("pointer return fail\n")
+        # verify that the loop only holds arithmetic and pointer
+        # operations.
+        if set(op.__class__ for op in ir[i + 1:j]) - \
+           set([Add, Sub, Left, Right]) != set():
             i = j
             continue
 
-        if mem.get(0, 0) != -1:
-#            sys.stderr.write("-1 fail\n")
+        # interpret the loop and track pointer position and what
+        # arithmetic operations it carries out
+        mem, p = {}, 0
+        for op in ir[i + 1:j]:
+            if isinstance(op, Add):
+                mem[p + op.offset] = mem.get(p, 0) + op.x
+            elif isinstance(op, Sub):
+                mem[p + op.offset] = mem.get(p, 0) - op.x
+            elif isinstance(op, Right):
+                p += op.x
+            elif isinstance(op, Left):
+                p -= op.x
+
+        # if pointer ended up where it started (cell 0) and we
+        # subtracted exactly 1 from cell 0, then this loop can be
+        # replaced with a Mul instruction
+        if p != 0 or mem.get(0, 0) != -1:
             i = j
             continue
         mem.pop(0)
 
+        # the copyloop optimization only handles the case of copying
+        # cells without a multiplicative factor. e.g., [->>+>+<<<] is
+        # a copy loop while [->>+>+++<<<] is a multiplication loop,
+        # since the latter adds the current cell's value times 3 to
+        # the third cell.
         if onlycopy and set(mem.values() + [1]) != set([1]):
-#            sys.stderr.write("plain copy fail\n")
             i = j
             continue
 
-        opt = (opt[:i] +
-               [('copy' if onlycopy else 'mul', (off, mem[off]))
-                for off in mem] +
-               [('clear', ())] +
-               opt[j + 1:])
-        i += len(mem) + 1
+        # all systems go: replace the loop with Mul or Copy operations
+        optblock = [Copy(p) if onlycopy else Mul(p, mem[p])
+                    for p in mem]
+        ir = ir[:i] + optblock + [Clear(0)] + ir[j + 1:]
+        i += len(optblock) + 2
 
-    return opt
+    return ir
+
 
 def opt_offsetops(ir):
     """Adds offsets to operations where applicable.
