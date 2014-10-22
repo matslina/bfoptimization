@@ -88,6 +88,38 @@ def ir_to_c(ir):
     return '\n'.join(code)
 
 
+def opt_cancel(ir):
+    """Cancels out adjacent Add, Sub and Left Right.
+
+    E.g., ++++-->>+-<<< is equivalent to +<.
+    """
+
+    opposite = {Add: Sub,
+                Sub: Add,
+                Left: Right,
+                Right: Left}
+    optimized = []
+
+    for op in ir:
+        if len(optimized) == 0:
+            optimized.append(op)
+            continue
+        prev = optimized[-1]
+        if prev.__class__ == opposite.get(op.__class__) and \
+           getattr(prev, 'offset', 0) == getattr(op, 'offset', 0):
+            x = prev.x - op.x
+            if x < 0:
+                optimized[-1] = op._replace(x=-x)
+            elif x > 0:
+                optimized[-1] = prev._replace(x=x)
+            else:
+                optimized.pop(-1)
+        else:
+            optimized.append(op)
+
+    return optimized
+
+
 def opt_contract(ir):
     """Contracts multiple Add, Sub, Left and Right into single instructions.
 
@@ -277,8 +309,8 @@ def opt_offsetops(ir):
 
     return ir
 
-
-opts = {'contract': opt_contract,
+opts = {'cancel': opt_cancel,
+        'contract': opt_contract,
         'clearloop': opt_clearloop,
         'copyloop': opt_copyloop,
         'multiloop': opt_multiloop,
