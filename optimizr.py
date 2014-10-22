@@ -251,9 +251,8 @@ def opt_multiloop(ir, onlycopy=False):
     return ir
 
 
-def opt_offsetops(ir):
+def opt_offsetops(ir, reorder=False):
     """Adds offsets to operations where applicable.
-
 
     Pointer positioning, i.e. < and > or Left and Right, can often be
     eliminated by providing offsets to other instructions. E.g.,
@@ -280,7 +279,7 @@ def opt_offsetops(ir):
         # operation is encountered, we dump the arithmetic operations
         # performed on that offset followed by the non-arithmetic
         # operation.
-        optblock, offset, p = [], {}, 0
+        optblock, offset, order, p = [], {}, [], 0
         for op in ir[i:j]:
             if isinstance(op, Left):
                 p -= op.x
@@ -291,11 +290,19 @@ def opt_offsetops(ir):
                 optblock.append(op._replace(offset=p))
                 offset[p] = []
             else:
-                offset.setdefault(p, []).append(op)
+                if not offset.get(p, []):
+                    offset[p] = []
+                offset[p].append(op)
+                order.append(p)
 
         # then dump the remaining arithmetic operations
-        for off in sorted(offset):
+        if reorder:
+            order.sort()
+            if len([x for x in order if x < p]) > len(order) / 2:
+                order = list(reversed(order))
+        for off in order:
             optblock.extend(op._replace(offset=off) for op in offset[off])
+            offset[off] = []
 
         # and finally reposition the pointer to wherever it ended up
         if p > 0:
@@ -309,20 +316,28 @@ def opt_offsetops(ir):
 
     return ir
 
+
+def opt_reorder(ir):
+    return opt_offsetops(ir, reorder=True)
+
+
 opts = {'cancel': opt_cancel,
         'contract': opt_contract,
         'clearloop': opt_clearloop,
         'copyloop': opt_copyloop,
         'multiloop': opt_multiloop,
-        'offsetops': opt_offsetops}
+        'offsetops': opt_offsetops,
+        'reorder': opt_reorder}
 
 def main():
     ir = bf_to_ir(sys.stdin.read())
 
+    optimizations = sys.argv[1:]
     if len(sys.argv) > 1 and sys.argv[1] == 'all':
-        sys.argv = sys.argv[:0] + sorted(opts.keys())
+        optimizations = ['cancel', 'contract', 'clearloop',
+                         'copyloop', 'multiloop', 'offsetops']
 
-    for x in sys.argv[1:]:
+    for x in optimizations:
         if x == 'none':
             continue
         if x not in opts:
