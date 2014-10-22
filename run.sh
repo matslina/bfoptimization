@@ -5,14 +5,14 @@ set -e
 OPTS="contract clearloop copyloop multiloop offsetops all"
 PROGS="*.b"
 
-# return the average runtime of 10 runs
+# return the average runtime of 10 runs. ignores the slowest of the 10.
 avgruntime() {
     > tmp.dat
     TIMEFORMAT="%R"
     for i in $(seq 10); do
 	{ time $1 < $2 > $3 2> /dev/null ; } 2>>tmp.dat
     done
-    echo "scale=4; ($(tr '\n' '+' < tmp.dat) 0) / 10" | bc
+    echo "scale=4; ($(sort tmp.dat | head -n-1 | tr '\n' '+') 0) / 9" | bc
 }
 
 # measure runtime for all optimizations on all programs
