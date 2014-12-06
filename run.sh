@@ -121,7 +121,7 @@ set style fill solid 1.0 noborder
 set grid y
 set xtic rotate by -45 scale 0
 set boxwidth 0.9
-set ylabel "runtime (seconds)"
+set ylabel "seconds"
 plot 'runtime.dat' using 2:xticlabel(1) notitle
 EOF
 
@@ -148,7 +148,7 @@ set style fill solid 1.0 noborder
 set grid y
 set xtic rotate by -45 scale 0
 set boxwidth 0.9
-set ylabel "runtime (seconds)"
+set ylabel "seconds"
 plot 'runtime2.dat' using 2:xticlabel(1) title 'no optimization', \
      '' u 3 title 'all optimizations'
 EOF
