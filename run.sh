@@ -154,3 +154,30 @@ plot 'runtime2.dat' using 2:xticlabel(1) title 'no optimization', \
 EOF
 
 gnuplot runtime2.p
+
+# run the analyzer script on the programs and gather some stats
+> codestats_contract.dat
+for program in $PROGS; do
+    echo -ne "$program\t" >> codestats_contract.dat
+    python analyze.py < $program | grep contract | awk '{print $4}' >> codestats_contract.dat
+
+done
+
+cat > codestats_contract.p <<EOF
+set terminal png
+set output "codestats_contract.png"
+set title "ratio of contractable instructions"
+set key inside top left box
+set auto x
+set yrange [0:1]
+set style data histogram
+set style histogram cluster gap 1
+set style fill solid 1.0 noborder
+set grid y
+set xtic rotate by -45 scale 0
+set boxwidth 0.9
+set ylabel ""
+plot 'codestats_contract.dat' using 2:xticlabel(1) title ''
+EOF
+
+gnuplot codestats_contract.p
