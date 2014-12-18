@@ -53,7 +53,7 @@ for optimization in $OPTS; do
     cat > $optimization.p <<EOF
 set terminal png
 set output "$optimization.png"
-set title "$optimization optimization speedup"
+set title "$optimization optimization"
 set auto x
 set yrange [0:1]
 set ytic 0.1
@@ -63,7 +63,7 @@ set style fill solid 1.0 noborder
 set grid y
 set xtic rotate by -45 scale 0
 set boxwidth 0.9
-set ylabel "speedup over unoptimized version"
+set ylabel "runtime relative to unoptimized version"
 plot '$optimization.dat' using (\$2 / \$3):xticlabels(1) notitle
 EOF
 
@@ -87,14 +87,14 @@ set output "offset_reorder.png"
 set title "offsetsops and reorder optimization speedup"
 set key inside top left box
 set auto x
-set yrange [0:*]
+set yrange [0:1]
 set style data histogram
 set style histogram cluster gap 1
 set style fill solid 1.0 noborder
 set grid y
 set xtic rotate by -45 scale 0
 set boxwidth 0.9
-set ylabel "speedup over unoptimized version"
+set ylabel "runtime relative to  unoptimized version"
 plot 'offset_reorder.dat' using (\$2 / \$4):xticlabel(1) title 'offsets', \
      '' u (\$3 / \$4) title 'offsets and reorder'
 EOF
