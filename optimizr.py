@@ -257,6 +257,12 @@ def opt_offsetops(ir, reorder=False):
     Pointer positioning, i.e. < and > or Left and Right, can often be
     eliminated by providing offsets to other instructions. E.g.,
     ->>>++.>>->> becomes Add(2, 3) Out(3) Sub(1, 5) Right(7).
+
+    This implementation will produce 7 consecutive Right(1) instead of
+    a single Right(7) though. This is so to allow this optimization to
+    be evaluated in isolation, without it also implementing
+    contraction of Left/Right. Take care to run contract *after*
+    offsetops if you're applying both.
     """
 
     ir = ir[:]
@@ -306,9 +312,9 @@ def opt_offsetops(ir, reorder=False):
 
         # and finally reposition the pointer to wherever it ended up
         if p > 0:
-            optblock.append(Right(p))
+            optblock.extend([Right(1) for _ in range(p)])
         elif p < 0:
-            optblock.append(Left(-p))
+            optblock.extend([Left(1) for _ in range(-p)])
 
         # replace the code block with the optimized block
         ir = ir[:i] + optblock + ir[j:]
@@ -334,8 +340,8 @@ def main():
 
     optimizations = sys.argv[1:]
     if len(sys.argv) > 1 and sys.argv[1] == 'all':
-        optimizations = ['cancel', 'contract', 'clearloop',
-                         'copyloop', 'multiloop', 'offsetops']
+        optimizations = ['clearloop', 'copyloop', 'multiloop',
+                         'offsetops', 'contract']
 
     for x in optimizations:
         if x == 'none':
