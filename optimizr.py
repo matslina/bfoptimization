@@ -22,7 +22,6 @@ from opt.copyloop import opt_copyloop
 from opt.multiloop import opt_multiloop
 from opt.offsetops import opt_offsetops
 from opt.scanloop import opt_scanloop
-from opt.reorder import opt_reorder
 from opt.ir import bf_to_ir, ir_to_c
 
 opts = {'cancel': opt_cancel,
