@@ -2,7 +2,7 @@
 
 set -e
 
-OPTS="contract clearloop copyloop multiloop offsetops reorder all"
+OPTS="contract clearloop copyloop multiloop offsetops reorder scanloop all"
 PROGS=$(ls progs | egrep '\.b$')
 
 # return the average runtime of 10 runs. ignores the slowest of the 10.

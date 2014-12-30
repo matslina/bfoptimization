@@ -31,6 +31,8 @@ In = namedtuple('In', ['offset'])
 Out = namedtuple('Out', ['offset'])
 Open = namedtuple('Open', [])
 Close = namedtuple('Close', [])
+ScanLeft = namedtuple('ScanLeft', [])
+ScanRight = namedtuple('ScanRight', [])
 
 # This IR has a couple of additional operations. Clear sets a cell to
 # 0. Copy copies the current cell to 'off' positions away. Mul is like
@@ -68,7 +70,9 @@ def ir_to_c(ir):
              Out: 'putchar(mem[p]);',
              Clear: 'mem[p] = 0;',
              Copy: 'mem[p+%(off)d] += mem[p];',
-             Mul: 'mem[p+%(off)d] += mem[p] * %(factor)d;'}
+             Mul: 'mem[p+%(off)d] += mem[p] * %(factor)d;',
+             ScanLeft: 'p -= (long)((void *)(mem + p) - memrchr(mem, 0, p+1));',
+             ScanRight: 'p += (long)(memchr(mem+p, 0, sizeof(mem)) - (void *)(mem+p));'}
 
     woff = {Add: 'mem[p+%(offset)d] += %(x)d;',
             Sub: 'mem[p+%(offset)d] -= %(x)d;',
@@ -79,6 +83,7 @@ def ir_to_c(ir):
     code = [(woff if getattr(op, 'offset', 0) else plain)[op.__class__] % op._asdict()
             for op in ir]
     code.insert(0, '\n'.join(['#include <stdio.h>',
+                              '#include <string.h>',
                               'unsigned char mem[65536];',
                               'int main() {',
                               'int p=0;']))
@@ -326,6 +331,26 @@ def opt_offsetops(ir, reorder=False):
 def opt_reorder(ir):
     return opt_offsetops(ir, reorder=True)
 
+def opt_scanloop(ir):
+
+    out = ir[:2]
+
+    for op in ir[2:]:
+        if (op.__class__ == Close and
+            out[-2].__class__ == Open and
+            out[-1].__class__ in (Left, Right) and
+            out[-1].x == 1):
+            if out[-1].__class__ == Left:
+                out.append(ScanLeft())
+            else:
+                out.append(ScanRight())
+            assert out.pop(-2).__class__ in (Left,Right)
+            assert out.pop(-2).__class__ == Open
+        else:
+            out.append(op)
+
+    return out
+
 
 opts = {'cancel': opt_cancel,
         'contract': opt_contract,
@@ -333,6 +358,7 @@ opts = {'cancel': opt_cancel,
         'copyloop': opt_copyloop,
         'multiloop': opt_multiloop,
         'offsetops': opt_offsetops,
+        'scanloop': opt_scanloop,
         'reorder': opt_reorder}
 
 def main():
@@ -341,7 +367,7 @@ def main():
     optimizations = sys.argv[1:]
     if len(sys.argv) > 1 and sys.argv[1] == 'all':
         optimizations = ['clearloop', 'copyloop', 'multiloop',
-                         'offsetops', 'contract']
+                         'offsetops', 'contract', 'scanloop']
 
     for x in optimizations:
         if x == 'none':
