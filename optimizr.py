@@ -31,8 +31,7 @@ opts = {'cancel': opt_cancel,
         'copyloop': opt_copyloop,
         'multiloop': opt_multiloop,
         'offsetops': opt_offsetops,
-        'scanloop': opt_scanloop,
-        'reorder': opt_reorder}
+        'scanloop': opt_scanloop}
 
 def main():
     ir = bf_to_ir(sys.stdin.read())

@@ -1,7 +1,7 @@
 from ir import *
 
 
-def opt_offsetops(ir, reorder=False):
+def opt_offsetops(ir):
     """Adds offsets to operations where applicable.
 
     Pointer positioning, i.e. < and > or Left and Right, can often be
@@ -52,10 +52,6 @@ def opt_offsetops(ir, reorder=False):
                 order.append(p)
 
         # then dump the remaining arithmetic operations
-        if reorder:
-            order.sort()
-            if len([x for x in order if x < p]) > len(order) / 2:
-                order = list(reversed(order))
         for off in order:
             optblock.extend(op._replace(offset=off) for op in offset[off])
             offset[off] = []
