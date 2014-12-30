@@ -29,7 +29,11 @@ for optimization in $OPTS; do
 	    echo "$program without optimization"
 	    python optimizr.py none <progs/$program > tmp.c
 	    gcc -Wno-int-to-pointer-cast -O0 tmp.c -o tmp
-	    avgruntime ./tmp progs/$program.in progs/$program.out > $program.none.dat
+	    avgruntime ./tmp progs/$program.in tmp.out > $program.none.dat
+	    if ! cmp tmp.out progs/$program.out; then
+		echo "EPIC MEGA FAIL"
+		exit 1
+	    fi
 	    rm tmp.c tmp
 	fi
 
