@@ -3,7 +3,7 @@
 set -e
 
 OPTS="contract clearloop copyloop multiloop offsetops reorder all"
-PROGS="*.b"
+PROGS=$(ls progs | egrep '\.b$')
 
 # return the average runtime of 10 runs. ignores the slowest of the 10.
 avgruntime() {
@@ -25,24 +25,25 @@ for optimization in $OPTS; do
 	fi
 
 	# make sure we have runtime without optimizations
-	if [ ! -f $program.none.dat -o ! -f $program.out ]; then
+	if [ ! -f $program.none.dat -o ! -f progs/$program.out ]; then
 	    echo "$program without optimization"
-	    python optimizr.py none <$program > tmp.c
-	    gcc -O0 tmp.c -o tmp
-	    avgruntime ./tmp $program.in $program.out > $program.none.dat
+	    python optimizr.py none <progs/$program > tmp.c
+	    gcc -Wno-int-to-pointer-cast -O0 tmp.c -o tmp
+	    avgruntime ./tmp progs/$program.in progs/$program.out > $program.none.dat
+	    rm tmp.c tmp
 	fi
 
 	# run with opt and add improvement to data file
 	echo "$program with $optimization"
-	python optimizr.py $optimization <$program > tmp.c
-	gcc -O0 tmp.c -o tmp
+	python optimizr.py $optimization <progs/$program > tmp.c
+	gcc -Wno-int-to-pointer-cast -O0 tmp.c -o tmp
 	rm tmp.c
 	echo -ne "$program\t" >> $optimization.dat
-	echo -ne "$(avgruntime ./tmp $program.in tmp.out)" >> $optimization.dat
+	echo -ne "$(avgruntime ./tmp progs/$program.in tmp.out)" >> $optimization.dat
 	echo -e "\t$(<$program.none.dat)" >> $optimization.dat
 
 	# verify that the output was correct
-	if ! cmp tmp.out $program.out; then
+	if ! cmp tmp.out progs/$program.out; then
 	    echo "EPIC MEGA FAIL"
 	    exit 1
 	fi
@@ -159,7 +160,7 @@ gnuplot runtime2.p
 > codestats_contract.dat
 for program in $PROGS; do
     echo -ne "$program\t" >> codestats_contract.dat
-    python analyze.py < $program | grep contract | awk '{print $4}' >> codestats_contract.dat
+    python analyze.py < progs/$program | grep contract | awk '{print $4}' >> codestats_contract.dat
 
 done
 
