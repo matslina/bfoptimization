@@ -39,7 +39,7 @@ Erik Bosman's [mandelbrot
 implementation](http://esoteric.sange.fi/brainfuck/utils/mandelbrot/mandelbrot.b)
 generates a 128x48 ascii graphics mandelbrot fractal. The program
 appears to have been generated using
-[http://esoteric.sange.fi/brainfuck/utils/mandelbrot/](CPP macros), as
+[CPP macros](http://esoteric.sange.fi/brainfuck/utils/mandelbrot/), as
 opposed to being fully "hand-written" in brainfuck. It accepts no
 input and is run accordingly in our benchmarks.
 
